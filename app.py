@@ -6,12 +6,15 @@ import cv2
 app = Flask(__name__)
 pose = mp.solutions.pose.Pose(static_image_mode=True)
 
+
 def calc_distance(p1, p2):
+    """Helper: calculate Euclidean distance between 2 keypoints"""
     if not p1 or not p2:
         return None
     dx = p1["x"] - p2["x"]
     dy = p1["y"] - p2["y"]
     return int(np.sqrt(dx * dx + dy * dy))
+
 
 def extract_skin_color(image, landmarks, h, w):
     """Extract average skin color from face region"""
@@ -23,7 +26,12 @@ def extract_skin_color(image, landmarks, h, w):
                 face_points.append((int(lm['x']), int(lm['y'])))
 
         if len(face_points) == 0:
-            return {"error": "No face landmarks for skin detection"}
+            return {
+                "hex": None,
+                "rgb": None,
+                "tone_category": "Unknown",
+                "error": "No face landmarks for skin detection"
+            }
 
         center_x = int(np.mean([p[0] for p in face_points]))
         center_y = int(np.mean([p[1] for p in face_points]))
@@ -36,7 +44,12 @@ def extract_skin_color(image, landmarks, h, w):
 
         face_region = image[y1:y2, x1:x2]
         if face_region.size == 0:
-            return {"error": "Empty region for skin color"}
+            return {
+                "hex": None,
+                "rgb": None,
+                "tone_category": "Unknown",
+                "error": "Empty region for skin color"
+            }
 
         face_rgb = cv2.cvtColor(face_region, cv2.COLOR_BGR2RGB)
         avg_color = np.mean(face_rgb, axis=(0, 1))
@@ -58,7 +71,13 @@ def extract_skin_color(image, landmarks, h, w):
             "tone_category": tone
         }
     except Exception as e:
-        return {"error": f"Skin extraction failed: {str(e)}"}
+        return {
+            "hex": None,
+            "rgb": None,
+            "tone_category": "Unknown",
+            "error": f"Skin extraction failed: {str(e)}"
+        }
+
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
@@ -93,7 +112,6 @@ def analyze():
 
         # Extract skin color
         skin_analysis = extract_skin_color(image, keypoints, h, w)
-        print("Skin color result:", skin_analysis)
 
         # Body width: shoulders & waist
         shoulder_width_px = None
@@ -109,19 +127,21 @@ def analyze():
         if shoulder_width_px and waist_width_px and waist_width_px > 0:
             shoulder_waist_ratio = round(shoulder_width_px / waist_width_px, 2)
 
+        body_width_result = {
+            "shoulder_px": shoulder_width_px if shoulder_width_px else 0,
+            "waist_px": waist_width_px if waist_width_px else 0,
+            "shoulder_to_waist_ratio": shoulder_waist_ratio if shoulder_waist_ratio else 0
+        }
+
         # Model confidence
         key_landmarks = ['nose', 'left_shoulder', 'right_shoulder', 'left_ankle', 'right_ankle']
-        visible_landmarks = [kp for kp in key_landmarks if kp in keypoints and keypoints[kp]['visibility'] > 0.5]
+        visible_landmarks = [kp for kp in keypoints if kp in key_landmarks and keypoints[kp]['visibility'] > 0.5]
         overall_confidence = len(visible_landmarks) / len(key_landmarks)
 
         return jsonify({
             "keypoints": keypoints,
             "skin_color": skin_analysis,
-            "body_width": {
-                "shoulder_px": shoulder_width_px,
-                "waist_px": waist_width_px,
-                "shoulder_to_waist_ratio": shoulder_waist_ratio
-            },
+            "body_width": body_width_result,
             "model_accuracy": {
                 "overall_confidence": round(overall_confidence, 2),
                 "key_landmarks_detected": len(visible_landmarks),
@@ -132,14 +152,24 @@ def analyze():
     else:
         return jsonify({
             "keypoints": {},
-            "skin_color": {"error": "No face detected"},
-            "body_width": {},
+            "skin_color": {
+                "hex": None,
+                "rgb": None,
+                "tone_category": "Unknown",
+                "error": "No face detected"
+            },
+            "body_width": {
+                "shoulder_px": 0,
+                "waist_px": 0,
+                "shoulder_to_waist_ratio": 0
+            },
             "model_accuracy": {
                 "overall_confidence": 0.0,
                 "key_landmarks_detected": 0,
                 "total_key_landmarks": 5
             }
         })
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
