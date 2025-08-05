@@ -272,13 +272,27 @@
           let data;
           try {
             data = JSON.parse(responseText);
-            displayResults(data);
+
+            // Check if it's AI message response
+            if (data.message && data.message.content) {
+              const formattedContent = formatAIResponse(data.message.content);
+              resultsContent.innerHTML = `
+                <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; line-height: 1.6;">
+                  <h4 style="color: #667eea; margin-bottom: 15px;">🤖 AI Style Recommendations:</h4>
+                  <div>${formattedContent}</div>
+                </div>
+              `;
+            } else {
+              // Regular pose detection results
+              displayResults(data);
+            }
           } catch (e) {
             // If it's not JSON, assume it's text recommendations from ChatGPT
+            const formattedContent = formatAIResponse(responseText);
             resultsContent.innerHTML = `
               <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; line-height: 1.6;">
                 <h4 style="color: #667eea; margin-bottom: 15px;">🤖 AI Style Recommendations:</h4>
-                <div style="white-space: pre-wrap;">${responseText}</div>
+                <div>${formattedContent}</div>
               </div>
             `;
           }
@@ -296,6 +310,37 @@
           analyzeBtn.textContent = "Analyze Pose";
         }
       });
+
+      function formatAIResponse(text) {
+        // Convert markdown-style formatting to HTML
+        let formatted = text
+          // Convert headers (### text)
+          .replace(
+            /###\s*(\d+)\.\s*([^#\n]+)/g,
+            '<h3 style="color: #667eea; margin: 20px 0 10px 0; font-size: 1.2rem;">$1. $2</h3>'
+          )
+          // Convert bold text (**text**)
+          .replace(
+            /\*\*([^*]+)\*\*/g,
+            '<strong style="color: #333;">$1</strong>'
+          )
+          // Convert bullet points (- text)
+          .replace(
+            /^-\s*(.+)$/gm,
+            '<div style="margin: 5px 0; padding-left: 15px;">• $1</div>'
+          )
+          // Convert line breaks to proper spacing
+          .replace(/\n\n/g, "<br><br>")
+          .replace(/\n/g, "<br>");
+
+        // Add some nice styling for outfit sections
+        formatted = formatted.replace(
+          /(Casual Day|Business-Casual Event|Streetwear Look|Night Out|Weekend Look)/g,
+          '<span style="background: #f0f4ff; padding: 2px 8px; border-radius: 4px; color: #667eea; font-weight: 600;">$1</span>'
+        );
+
+        return formatted;
+      }
 
       function displayResults(data) {
         if (!data.keypoints || Object.keys(data.keypoints).length === 0) {
