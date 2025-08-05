@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pose Analysis API - Upload Image</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+
+      .container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        padding: 40px;
+        max-width: 800px;
+        width: 100%;
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 30px;
+        font-size: 2.5rem;
+      }
+
+      .upload-section {
+        margin-bottom: 30px;
+      }
+
+      .file-input-wrapper {
+        position: relative;
+        display: inline-block;
+        width: 100%;
+      }
+
+      .file-input {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+      }
+
+      .file-input-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 40px;
+        border: 3px dashed #667eea;
+        border-radius: 15px;
+        background: #f8f9ff;
+        color: #667eea;
+        font-size: 1.2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        cursor: pointer;
+      }
+
+      .file-input-button:hover {
+        background: #667eea;
+        color: white;
+        transform: translateY(-2px);
+      }
+
+      .analyze-btn {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 20px;
+      }
+
+      .analyze-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+      }
+
+      .analyze-btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .preview-section {
+        margin: 30px 0;
+        text-align: center;
+      }
+
+      .image-preview {
+        max-width: 100%;
+        max-height: 400px;
+        border-radius: 10px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      .results-section {
+        margin-top: 30px;
+      }
+
+      .results-title {
+        color: #333;
+        margin-bottom: 15px;
+        font-size: 1.3rem;
+      }
+
+      .results-content {
+        background: #f8f9ff;
+        border-radius: 10px;
+        padding: 20px;
+        border-left: 4px solid #667eea;
+      }
+
+      .keypoint-item {
+        margin: 10px 0;
+        padding: 10px;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+      }
+
+      .keypoint-name {
+        font-weight: 600;
+        color: #667eea;
+        text-transform: capitalize;
+      }
+
+      .keypoint-coords {
+        color: #666;
+        font-size: 0.9rem;
+        margin-top: 5px;
+      }
+
+      .error {
+        color: #e74c3c;
+        background: #fdf2f2;
+        border: 1px solid #e74c3c;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 20px;
+      }
+
+      .loading {
+        text-align: center;
+        color: #667eea;
+        font-size: 1.1rem;
+        margin-top: 20px;
+      }
+
+      .file-name {
+        margin-top: 10px;
+        color: #666;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🏃‍♂️ Pose Analysis API</h1>
+
+      <div class="upload-section">
+        <div class="file-input-wrapper">
+          <input
+            type="file"
+            id="imageFile"
+            class="file-input"
+            accept="image/*"
+          />
+          <div class="file-input-button">
+            📸 Click to select an image or drag & drop
+          </div>
+        </div>
+        <div class="file-name" id="fileName"></div>
+        <button class="analyze-btn" id="analyzeBtn" disabled>
+          Analyze Pose
+        </button>
+      </div>
+
+      <div class="preview-section" id="previewSection" style="display: none">
+        <img id="imagePreview" class="image-preview" alt="Preview" />
+      </div>
+
+      <div class="results-section" id="resultsSection" style="display: none">
+        <h3 class="results-title">Analysis Results</h3>
+        <div class="results-content" id="resultsContent"></div>
+      </div>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("imageFile");
+      const fileName = document.getElementById("fileName");
+      const analyzeBtn = document.getElementById("analyzeBtn");
+      const previewSection = document.getElementById("previewSection");
+      const imagePreview = document.getElementById("imagePreview");
+      const resultsSection = document.getElementById("resultsSection");
+      const resultsContent = document.getElementById("resultsContent");
+
+      fileInput.addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        if (file) {
+          fileName.textContent = `Selected: ${file.name}`;
+          analyzeBtn.disabled = false;
+
+          // Show preview
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            imagePreview.src = e.target.result;
+            previewSection.style.display = "block";
+          };
+          reader.readAsDataURL(file);
+        } else {
+          fileName.textContent = "";
+          analyzeBtn.disabled = true;
+          previewSection.style.display = "none";
+        }
+      });
+
+      analyzeBtn.addEventListener("click", async function () {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        // Show loading state
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = "Analyzing...";
+        resultsContent.innerHTML =
+          '<div class="loading">🔄 Processing image...</div>';
+        resultsSection.style.display = "block";
+
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          const response = await fetch(
+            "http://localhost:5678/webhook/upload-image",
+            {
+              method: "POST",
+              body: formData,
+            }
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(
+              `HTTP error! status: ${response.status} - ${errorText}`
+            );
+          }
+
+          const responseText = await response.text();
+          console.log("Raw response:", responseText);
+
+          let data;
+          try {
+            data = JSON.parse(responseText);
+            displayResults(data);
+          } catch (e) {
+            // If it's not JSON, assume it's text recommendations from ChatGPT
+            resultsContent.innerHTML = `
+              <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #ddd; line-height: 1.6;">
+                <h4 style="color: #667eea; margin-bottom: 15px;">🤖 AI Style Recommendations:</h4>
+                <div style="white-space: pre-wrap;">${responseText}</div>
+              </div>
+            `;
+          }
+        } catch (error) {
+          console.error("Error:", error);
+          resultsContent.innerHTML = `
+                    <div class="error">
+                        <strong>Error:</strong> ${error.message}
+                        <br><br>
+                        Make sure your webhook is running at localhost:5678/webhook/upload-image
+                    </div>
+                `;
+        } finally {
+          analyzeBtn.disabled = false;
+          analyzeBtn.textContent = "Analyze Pose";
+        }
+      });
+
+      function displayResults(data) {
+        if (!data.keypoints || Object.keys(data.keypoints).length === 0) {
+          resultsContent.innerHTML =
+            '<div class="error">No pose detected in the image.</div>';
+          return;
+        }
+
+        const keypointCount = Object.keys(data.keypoints).length;
+        let html = `<div style="margin-bottom: 20px; font-weight: 600; color: #667eea;">
+                Found ${keypointCount} pose landmarks:
+            </div>`;
+
+        for (const [name, coords] of Object.entries(data.keypoints)) {
+          const visibility = (coords.visibility * 100).toFixed(1);
+          html += `
+                    <div class="keypoint-item">
+                        <div class="keypoint-name">${name.replace(
+                          /_/g,
+                          " "
+                        )}</div>
+                        <div class="keypoint-coords">
+                            X: ${coords.x}px, Y: ${
+            coords.y
+          }px, Z: ${coords.z.toFixed(3)}, 
+                            Visibility: ${visibility}%
+                        </div>
+                    </div>
+                `;
+        }
+
+        resultsContent.innerHTML = html;
+      }
+
+      // Drag and drop functionality
+      const fileInputButton = document.querySelector(".file-input-button");
+
+      ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+        fileInputButton.addEventListener(eventName, preventDefaults, false);
+      });
+
+      function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+
+      ["dragenter", "dragover"].forEach((eventName) => {
+        fileInputButton.addEventListener(eventName, highlight, false);
+      });
+
+      ["dragleave", "drop"].forEach((eventName) => {
+        fileInputButton.addEventListener(eventName, unhighlight, false);
+      });
+
+      function highlight(e) {
+        fileInputButton.style.background = "#667eea";
+        fileInputButton.style.color = "white";
+      }
+
+      function unhighlight(e) {
+        fileInputButton.style.background = "#f8f9ff";
+        fileInputButton.style.color = "#667eea";
+      }
+
+      fileInputButton.addEventListener("drop", handleDrop, false);
+
+      function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+          fileInput.files = files;
+          fileInput.dispatchEvent(new Event("change"));
+        }
+      }
+    </script>
+  </body>
+</html>
