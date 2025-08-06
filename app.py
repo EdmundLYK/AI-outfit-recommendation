@@ -9,9 +9,12 @@ pose = mp.solutions.pose.Pose(static_image_mode=True)
 def calc_distance(p1, p2):
     if not p1 or not p2:
         return None
-    dx = p1["x"] - p2["x"]
-    dy = p1["y"] - p2["y"]
-    return int(np.sqrt(dx * dx + dy * dy))
+    try:
+        dx = (p1.get("x", 0) - p2.get("x", 0))
+        dy = (p1.get("y", 0) - p2.get("y", 0))
+        return int(np.sqrt(dx * dx + dy * dy))
+    except Exception:
+        return None
 
 def extract_skin_color(image, landmarks, h, w):
     try:
@@ -68,6 +71,10 @@ def analyze():
 
     if result.pose_landmarks:
         h, w, _ = image.shape
+        
+        # Define key landmarks for upper body analysis
+        key_landmarks = ['nose', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip']
+        
         for i, lm in enumerate(result.pose_landmarks.landmark):
             keypoint_name = mp.solutions.pose.PoseLandmark(i).name.lower()
             keypoints[keypoint_name] = {
@@ -77,64 +84,38 @@ def analyze():
                 "visibility": lm.visibility
             }
 
-            if keypoint_name in ['nose', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip']:
+            # Only track accuracy for key landmarks
+            if keypoint_name in key_landmarks:
                 analysis_accuracy[keypoint_name] = {
                     "visibility": round(lm.visibility, 3),
                     "confidence": "High" if lm.visibility > 0.8 else "Medium" if lm.visibility > 0.5 else "Low"
                 }
 
-        # Measurements
-        shoulder_width_px = calc_distance(keypoints.get("left_shoulder"), keypoints.get("right_shoulder"))
-        waist_width_px = calc_distance(keypoints.get("left_hip"), keypoints.get("right_hip"))
+        # Body width analysis
+        body_width_data = {"error": "Missing landmarks"}
+        if keypoints.get('left_shoulder') and keypoints.get('right_shoulder'):
+            shoulder_width = calc_distance(keypoints['left_shoulder'], keypoints['right_shoulder'])
+            
+            if keypoints.get('left_hip') and keypoints.get('right_hip'):
+                hip_width = calc_distance(keypoints['left_hip'], keypoints['right_hip'])
+                if shoulder_width and hip_width and hip_width > 0:
+                    ratio = round(shoulder_width / hip_width, 2)
+                    body_width_data = {
+                        "shoulder_px": shoulder_width,
+                        "hip_px": hip_width,
+                        "shoulder_to_hip_ratio": ratio,
+                        "body_shape": "Inverted Triangle" if ratio > 1.2 else "Pear" if ratio < 0.8 else "Rectangle"
+                    }
 
-        # ✅ Improved torso length (try left, right, or midpoint)
-        torso_length_px = None
-        if "left_shoulder" in keypoints and "left_hip" in keypoints:
-            torso_length_px = calc_distance(keypoints["left_shoulder"], keypoints["left_hip"])
-        elif "right_shoulder" in keypoints and "right_hip" in keypoints:
-            torso_length_px = calc_distance(keypoints["right_shoulder"], keypoints["right_hip"])
-        elif all(k in keypoints for k in ["left_shoulder", "right_shoulder", "left_hip", "right_hip"]):
-            mid_shoulder = {
-                "x": (keypoints["left_shoulder"]["x"] + keypoints["right_shoulder"]["x"]) // 2,
-                "y": (keypoints["left_shoulder"]["y"] + keypoints["right_shoulder"]["y"]) // 2
-            }
-            mid_hip = {
-                "x": (keypoints["left_hip"]["x"] + keypoints["right_hip"]["x"]) // 2,
-                "y": (keypoints["left_hip"]["y"] + keypoints["right_hip"]["y"]) // 2
-            }
-            torso_length_px = calc_distance(mid_shoulder, mid_hip)
-
-        # Body shape classification
-        body_shape = None
-        ratio = None
-        if shoulder_width_px and waist_width_px:
-            ratio = shoulder_width_px / waist_width_px if waist_width_px > 0 else None
-            if ratio and ratio > 1.2:
-                body_shape = "Inverted Triangle (broad shoulders)"
-            elif ratio and ratio < 0.8:
-                body_shape = "Pear (narrow shoulders, wider waist)"
-            else:
-                body_shape = "Balanced (proportional shoulders and waist)"
-        else:
-            body_shape = "Unknown"
-
-        skin_analysis = extract_skin_color(image, keypoints, h, w)
-
-        # Model confidence
-        key_landmarks = ['nose', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip']
+        # Only extract visible key landmarks (upper body only)
         visible_landmarks = [kp for kp in key_landmarks if kp in keypoints and keypoints[kp]['visibility'] > 0.5]
         overall_confidence = len(visible_landmarks) / len(key_landmarks)
 
+        # Return only required data for n8n
         return jsonify({
             "keypoints": keypoints,
-            "skin_color": skin_analysis,
-            "body_width": {
-                "shoulder_px": shoulder_width_px,
-                "waist_px": waist_width_px,
-                "shoulder_to_waist_ratio": round(ratio, 2) if ratio else None,
-                "torso_length_px": torso_length_px,
-                "body_shape": body_shape
-            },
+            "skin_color": extract_skin_color(image, keypoints, h, w),
+            "body_width": body_width_data,
             "model_accuracy": {
                 "overall_confidence": round(overall_confidence, 2),
                 "key_landmarks_detected": len(visible_landmarks),
@@ -147,13 +128,17 @@ def analyze():
         return jsonify({
             "keypoints": {},
             "skin_color": {"error": "No face detected"},
-            "body_width": {"body_shape": "Unknown"},
+            "body_width": {"error": "No pose detected"},
             "model_accuracy": {
                 "overall_confidence": 0.0,
                 "key_landmarks_detected": 0,
-                "total_key_landmarks": 5
+                "total_key_landmarks": 5,
+                "landmark_accuracy": {}
             }
         })
+    
+
+   
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
