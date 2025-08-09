@@ -6,6 +6,12 @@ import cv2
 app = Flask(__name__)
 pose = mp.solutions.pose.Pose(static_image_mode=True)
 
+# ✅ drop these from the output entirely
+EXCLUDED_LANDMARKS = {
+    "left_ankle", "left_foot_index", "left_heel", "left_knee",
+    "right_ankle", "right_foot_index", "right_heel", "right_knee"
+}
+
 def calc_distance(p1, p2):
     if not p1 or not p2:
         return None
@@ -71,31 +77,33 @@ def analyze():
 
     if result.pose_landmarks:
         h, w, _ = image.shape
-        
-        # Define key landmarks for upper body analysis
+
+        # Only consider these as "key landmarks" for accuracy (upper body)
         key_landmarks = ['nose', 'left_shoulder', 'right_shoulder', 'left_hip', 'right_hip']
-        
+
         for i, lm in enumerate(result.pose_landmarks.landmark):
-            keypoint_name = mp.solutions.pose.PoseLandmark(i).name.lower()
-            keypoints[keypoint_name] = {
+            name = mp.solutions.pose.PoseLandmark(i).name.lower()
+            # 🚫 skip excluded lower-body points
+            if name in EXCLUDED_LANDMARKS:
+                continue
+
+            keypoints[name] = {
                 "x": int(lm.x * w),
                 "y": int(lm.y * h),
                 "z": lm.z,
                 "visibility": lm.visibility
             }
 
-            # Only track accuracy for key landmarks
-            if keypoint_name in key_landmarks:
-                analysis_accuracy[keypoint_name] = {
-                    "visibility": round(lm.visibility, 3),
+            if name in key_landmarks:
+                analysis_accuracy[name] = {
+                    "visibility": round(lm.visibility, 5),
                     "confidence": "High" if lm.visibility > 0.8 else "Medium" if lm.visibility > 0.5 else "Low"
                 }
 
-        # Body width analysis
+        # --- Body width (kept as-is) ---
         body_width_data = {"error": "Missing landmarks"}
         if keypoints.get('left_shoulder') and keypoints.get('right_shoulder'):
             shoulder_width = calc_distance(keypoints['left_shoulder'], keypoints['right_shoulder'])
-            
             if keypoints.get('left_hip') and keypoints.get('right_hip'):
                 hip_width = calc_distance(keypoints['left_hip'], keypoints['right_hip'])
                 if shoulder_width and hip_width and hip_width > 0:
@@ -107,11 +115,10 @@ def analyze():
                         "body_shape": "Inverted Triangle" if ratio > 1.2 else "Pear" if ratio < 0.8 else "Rectangle"
                     }
 
-        # Only extract visible key landmarks (upper body only)
+        # accuracy score (upper-body only)
         visible_landmarks = [kp for kp in key_landmarks if kp in keypoints and keypoints[kp]['visibility'] > 0.5]
         overall_confidence = len(visible_landmarks) / len(key_landmarks)
 
-        # Return only required data for n8n
         return jsonify({
             "keypoints": keypoints,
             "skin_color": extract_skin_color(image, keypoints, h, w),
@@ -136,9 +143,6 @@ def analyze():
                 "landmark_accuracy": {}
             }
         })
-    
-
-   
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
