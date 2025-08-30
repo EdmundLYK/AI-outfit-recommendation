@@ -18,9 +18,13 @@ Person’s Upper Body Analysis:
 Guidelines:
 1. Suggest **3 outfit styles**: Casual, Business-Casual, and Streetwear/Trendy.
 2. For each style, provide ONLY:
-   - **Top Recommendation:** Type (T-shirt, button-down, hoodie, etc.), fit (slim/relaxed/structured), neckline (crew, V-neck, collar, etc.), fabric, and color(s) suited to the skin tone.
-   - **Accessory Recommendation:** 0–2 items (watch, chain, bracelet, cap, etc.) that complement the top and help balance body proportions (e.g., shift focus from broad shoulders or draw attention to neckline).
-   - **Reasoning:** Explain clearly WHY the top and accessory fit the person’s skin tone and body proportions. Use body shape, shoulder-to-waist ratio, and torso length as justification (e.g., shorter torso → longer tops elongate; broad shoulders → raglan sleeves or V-necks soften; medium-dark skin → warm earthy tones enhance).
+   - **Top Recommendation:** Type (T-shirt, button-down, hoodie, etc.), fit (slim/relaxed/structured), neckline (crew, V-neck, collar, etc.), fabric, 
+   and color(s) suited to the skin tone.
+   - **Accessory Recommendation:** 0–2 items (watch, chain, bracelet, cap, etc.) that complement the top and help balance body proportions 
+   (e.g., shift focus from broad shoulders or draw attention to neckline).
+   - **Reasoning:** Explain clearly WHY the top and accessory fit the person’s skin tone and body proportions. Use body shape, 
+   shoulder-to-waist ratio, and torso length as justification (e.g., shorter torso → longer tops elongate; broad shoulders → raglan sleeves or V-necks soften; 
+   medium-dark skin → warm earthy tones enhance).
 
 Rules:
 - Do NOT suggest pants, shoes, or full-body outfits.

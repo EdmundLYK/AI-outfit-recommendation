@@ -22,6 +22,63 @@ def calc_distance(p1, p2):
     except Exception:
         return None
 
+def classify_fitzpatrick_scale(r, g, b):
+    """Classify skin tone using Fitzpatrick scale (I-VI)"""
+    brightness = (r + g + b) / 3
+    
+    if brightness > 210:
+        return {"scale": "I", "description": "Very Fair - Always burns, never tans"}
+    elif brightness > 190:
+        return {"scale": "II", "description": "Fair - Usually burns, tans minimally"}
+    elif brightness > 160:
+        return {"scale": "III", "description": "Light - Sometimes burns, gradually tans"}
+    elif brightness > 130:
+        return {"scale": "IV", "description": "Moderate - Rarely burns, always tans"}
+    elif brightness > 100:
+        return {"scale": "V", "description": "Dark - Very rarely burns, tans very easily"}
+    else:
+        return {"scale": "VI", "description": "Very Dark - Never burns, deeply pigmented"}
+
+def detect_undertone(r, g, b):
+    """Detect skin undertone (warm, cool, neutral)"""
+    # Convert to different color spaces for better undertone detection
+    yellow_factor = (r + g) / (2 * b) if b > 0 else 1
+    red_factor = r / g if g > 0 else 1
+    
+    # Analyze undertone based on color ratios
+    if yellow_factor > 1.15 and red_factor > 1.1:
+        return {"undertone": "Warm", "description": "Golden, yellow, or peach undertones"}
+    elif yellow_factor < 0.95 and (b / r) > 0.85:
+        return {"undertone": "Cool", "description": "Pink, red, or blue undertones"}
+    else:
+        return {"undertone": "Neutral", "description": "Balanced warm and cool undertones"}
+
+def get_descriptive_category(r, g, b):
+    """Get descriptive skin tone category for fashion/beauty context"""
+    brightness = (r + g + b) / 3
+    
+    # More granular categories based on fashion/beauty industry standards
+    if brightness > 220:
+        return "Porcelain"
+    elif brightness > 205:
+        return "Fair"
+    elif brightness > 190:
+        return "Light"
+    elif brightness > 175:
+        return "Light-Medium"
+    elif brightness > 160:
+        return "Medium"
+    elif brightness > 145:
+        return "Medium-Tan"
+    elif brightness > 130:
+        return "Tan"
+    elif brightness > 115:
+        return "Deep"
+    elif brightness > 100:
+        return "Rich"
+    else:
+        return "Ebony"
+
 def extract_skin_color(image, landmarks, h, w):
     try:
         face_points = []
@@ -49,16 +106,43 @@ def extract_skin_color(image, landmarks, h, w):
 
         hex_color = '#{:02x}{:02x}{:02x}'.format(*[int(c) for c in avg_color])
         r, g, b = avg_color
-        if r > 220 and g > 200 and b > 180:
-            tone = "Light"
-        elif r > 180 and g > 140 and b > 100:
-            tone = "Medium"
-        elif r > 120 and g > 80 and b > 60:
-            tone = "Medium-Dark"
+        
+        # Get all classification systems
+        fitzpatrick = classify_fitzpatrick_scale(r, g, b)
+        undertone = detect_undertone(r, g, b)
+        descriptive = get_descriptive_category(r, g, b)
+        
+        # Detailed simple tone categories
+        brightness = (r + g + b) / 3
+        
+        if brightness > 220:
+            simple_tone = "Very Light"
+        elif brightness > 200:
+            simple_tone = "Light"
+        elif brightness > 180:
+            simple_tone = "Fair"
+        elif brightness > 160:
+            simple_tone = "Light Medium"
+        elif brightness > 140:
+            simple_tone = "Medium"
+        elif brightness > 120:
+            simple_tone = "Medium Dark"
+        elif brightness > 100:
+            simple_tone = "Dark"
+        elif brightness > 80:
+            simple_tone = "Deep"
         else:
-            tone = "Dark"
+            simple_tone = "Very Dark"
 
-        return {"hex": hex_color, "rgb": [int(r), int(g), int(b)], "tone_category": tone}
+        return {
+            "hex": hex_color, 
+            "rgb": [int(r), int(g), int(b)], 
+            "tone_category": simple_tone,  # Keep for backward compatibility
+            "descriptive_category": descriptive,
+            "fitzpatrick_scale": fitzpatrick,
+            "undertone": undertone,
+            "brightness_score": round((r + g + b) / 3, 1)
+        }
     except Exception as e:
         return {"error": f"Skin extraction failed: {str(e)}"}
 
