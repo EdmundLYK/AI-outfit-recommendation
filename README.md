@@ -1,6 +1,6 @@
 # AI Outfit Recommendation System
 
-An intelligent fashion recommendation system that analyzes body measurements and skin tone from uploaded images to provide personalized outfit suggestions. The system combines computer vision, pose detection, and AI-powered styling recommendations.
+An intelligent fashion recommendation system that analyzes body measurements and skin tone from uploaded images to provide personalized outfit suggestions. The system combines computer vision, pose detection, n8n automation and AI-powered styling recommendations.
 
 ## 🌟 Features
 
